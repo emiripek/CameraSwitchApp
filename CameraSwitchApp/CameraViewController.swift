@@ -5,13 +5,6 @@
 //  Created by Emirhan Ipek on 23.07.2025.
 //
 
-//
-//  CameraViewController.swift
-//  CameraSwitchApp
-//
-//  Created by Emirhan Ipek on 23.07.2025.
-//
-
 import UIKit
 import AVFoundation
 
