@@ -155,7 +155,7 @@ class CameraViewController: UIViewController {
         previewLayer = AVCaptureVideoPreviewLayer(session: session)
         previewLayer.videoGravity = .resizeAspectFill
         if let conn = previewLayer.connection, conn.isVideoOrientationSupported {
-            conn.videoOrientation = .portrait
+            conn.videoOrientation = currentVideoOrientation()
         }
         view.layer.insertSublayer(previewLayer, at: 0)
         previewLayer.frame = view.bounds
@@ -204,26 +204,44 @@ class CameraViewController: UIViewController {
                     self.session.addInput(current)
                 }
                 self.session.commitConfiguration()
+                self.updateVideoConnection()
+                DispatchQueue.main.async {
+                    if let conn = self.previewLayer.connection {
+                        if conn.isVideoOrientationSupported {
+                            conn.videoOrientation = self.currentVideoOrientation()
+                        }
+                        if conn.isVideoMirroringSupported {
+                            conn.isVideoMirrored = (newPos == .front)
+                        }
+                    }
+                }
             }
         }
     }
 
-    private func currentVideoTransform() -> CGAffineTransform {
-        var transform = CGAffineTransform.identity
+    private func currentVideoOrientation() -> AVCaptureVideoOrientation {
         switch UIDevice.current.orientation {
-        case .landscapeRight:
-            transform = CGAffineTransform(rotationAngle: .pi / 2)
-        case .landscapeLeft:
-            transform = CGAffineTransform(rotationAngle: -.pi / 2)
+        case .portrait:
+            return .portrait
         case .portraitUpsideDown:
-            transform = CGAffineTransform(rotationAngle: .pi)
+            return .portraitUpsideDown
+        case .landscapeLeft:
+            return .landscapeRight
+        case .landscapeRight:
+            return .landscapeLeft
         default:
-            transform = .identity
+            return .portrait
         }
-        if videoInput?.device.position == .front {
-            transform = transform.scaledBy(x: -1, y: 1)
+    }
+
+    private func updateVideoConnection() {
+        guard let connection = videoOutput.connection(with: .video) else { return }
+        if connection.isVideoOrientationSupported {
+            connection.videoOrientation = currentVideoOrientation()
         }
-        return transform
+        if connection.isVideoMirroringSupported {
+            connection.isVideoMirrored = (videoInput?.device.position == .front)
+        }
     }
 
     // MARK: - Writer Control
@@ -237,7 +255,9 @@ class CameraViewController: UIViewController {
             return
         }
         assetWriter = writer
-        
+
+        updateVideoConnection()
+
         // Video writer input
         guard let vSettings = videoOutput.recommendedVideoSettingsForAssetWriter(writingTo: .mov) else {
             print("❌ Could not get video settings")
@@ -245,8 +265,6 @@ class CameraViewController: UIViewController {
         }
         let vInput = AVAssetWriterInput(mediaType: .video, outputSettings: vSettings)
         vInput.expectsMediaDataInRealTime = true
-        // Ensure recorded video matches current orientation and mirroring
-        vInput.transform = currentVideoTransform()
         pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
             assetWriterInput: vInput,
             sourcePixelBufferAttributes: nil
