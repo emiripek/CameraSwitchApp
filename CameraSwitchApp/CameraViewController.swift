@@ -204,6 +204,17 @@ class CameraViewController: UIViewController {
                     self.session.addInput(current)
                 }
                 self.session.commitConfiguration()
+                self.updateVideoConnection()
+                DispatchQueue.main.async {
+                    if let conn = self.previewLayer.connection {
+                        if conn.isVideoOrientationSupported {
+                            conn.videoOrientation = self.currentVideoOrientation()
+                        }
+                        if conn.isVideoMirroringSupported {
+                            conn.isVideoMirrored = (newPos == .front)
+                        }
+                    }
+                }
             }
         }
     }
@@ -223,6 +234,16 @@ class CameraViewController: UIViewController {
     }
 }
 
+private func updateVideoConnection() {
+    guard let connection = videoOutput.connection(with: .video) else { return }
+    if connection.isVideoOrientationSupported {
+        connection.videoOrientation = currentVideoOrientation()
+    }
+    if connection.isVideoMirroringSupported {
+        connection.isVideoMirrored = (videoInput?.device.position == .front)
+    }
+}
+
 private func currentVideoTransform() -> CGAffineTransform {
     if videoInput?.device.position == .front {
         return CGAffineTransform(scaleX: -1, y: 1)
@@ -232,21 +253,19 @@ private func currentVideoTransform() -> CGAffineTransform {
 }
 
     // MARK: - Writer Control
-    private func startWritingSession() {
-        let outputURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("mov")
-        
-        guard let writer = try? AVAssetWriter(outputURL: outputURL, fileType: .mov) else {
-            print("❌ Could not create AVAssetWriter")
-            return
-        }
-        assetWriter = writer
+private func startWritingSession() {
+    let outputURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+        .appendingPathExtension("mov")
+    
+    guard let writer = try? AVAssetWriter(outputURL: outputURL, fileType: .mov) else {
+        print("❌ Could not create AVAssetWriter")
+        return
+    }
+    assetWriter = writer
 
-        if let connection = videoOutput.connection(with: .video),
-           connection.isVideoOrientationSupported {
-            connection.videoOrientation = currentVideoOrientation()
-        }
+    updateVideoConnection()
+}
 
         // Video writer input
         guard let vSettings = videoOutput.recommendedVideoSettingsForAssetWriter(writingTo: .mov) else {
@@ -255,8 +274,6 @@ private func currentVideoTransform() -> CGAffineTransform {
         }
         let vInput = AVAssetWriterInput(mediaType: .video, outputSettings: vSettings)
         vInput.expectsMediaDataInRealTime = true
-        // Ensure recorded video matches current orientation and mirroring
-        vInput.transform = currentVideoTransform()
         pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
             assetWriterInput: vInput,
             sourcePixelBufferAttributes: nil
