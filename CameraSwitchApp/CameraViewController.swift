@@ -59,14 +59,27 @@ class CameraViewController: UIViewController {
     
     // MARK: - Permission & Session Setup
     private func checkPermissionsAndStart() {
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized:
+        let videoStatus = AVCaptureDevice.authorizationStatus(for: .video)
+        let audioStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+
+        switch (videoStatus, audioStatus) {
+        case (.authorized, .authorized):
             setupAndStartSession()
-        case .notDetermined:
+        case (.notDetermined, _):
             AVCaptureDevice.requestAccess(for: .video) { granted in
                 DispatchQueue.main.async {
                     if granted {
-                        self.setupAndStartSession()
+                        self.checkPermissionsAndStart()
+                    } else {
+                        self.showPermissionAlert()
+                    }
+                }
+            }
+        case (_, .notDetermined):
+            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        self.checkPermissionsAndStart()
                     } else {
                         self.showPermissionAlert()
                     }
@@ -85,8 +98,8 @@ class CameraViewController: UIViewController {
     
     private func showPermissionAlert() {
         let alert = UIAlertController(
-            title: "Camera Permission Needed",
-            message: "Please allow camera access in Settings → Privacy → Camera",
+            title: "Permissions Needed",
+            message: "Please allow camera and microphone access in Settings → Privacy",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "OK", style: .default))
@@ -108,8 +121,9 @@ class CameraViewController: UIViewController {
             print("❌ Unable to add back camera")
         }
         
-        // Audio input
-        if let mic = AVCaptureDevice.default(for: .audio),
+        // Audio input (only if microphone permission is granted)
+        if AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
+           let mic = AVCaptureDevice.default(for: .audio),
            let audioDeviceInput = try? AVCaptureDeviceInput(device: mic),
            session.canAddInput(audioDeviceInput) {
             session.addInput(audioDeviceInput)
@@ -125,7 +139,8 @@ class CameraViewController: UIViewController {
         }
         
         // Audio data output
-        if session.canAddOutput(audioOutput) {
+        if AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
+           session.canAddOutput(audioOutput) {
             audioOutput.setSampleBufferDelegate(self, queue: sessionQueue)
             session.addOutput(audioOutput)
         } else {
