@@ -209,40 +209,27 @@ class CameraViewController: UIViewController {
     }
 
     private func currentVideoOrientation() -> AVCaptureVideoOrientation {
-        switch UIDevice.current.orientation {
-        case .portrait:
-            return .portrait
-        case .portraitUpsideDown:
-            return .portraitUpsideDown
-        case .landscapeLeft:
-            return .landscapeRight
-        case .landscapeRight:
-            return .landscapeLeft
-        default:
-            return .portrait
-        }
+    switch UIDevice.current.orientation {
+    case .portrait:
+        return .portrait
+    case .portraitUpsideDown:
+        return .portraitUpsideDown
+    case .landscapeLeft:
+        return .landscapeRight
+    case .landscapeRight:
+        return .landscapeLeft
+    default:
+        return .portrait
     }
+}
 
-    private func currentVideoTransform() -> CGAffineTransform {
-        let base: CGAffineTransform
-        switch UIDevice.current.orientation {
-        case .portrait:
-            base = CGAffineTransform(rotationAngle: .pi / 2)
-        case .portraitUpsideDown:
-            base = CGAffineTransform(rotationAngle: -.pi / 2)
-        case .landscapeLeft:
-            base = CGAffineTransform(rotationAngle: .pi)
-        case .landscapeRight:
-            base = .identity
-        default:
-            base = .identity
-        }
-        if videoInput?.device.position == .front {
-            return base.scaledBy(x: -1, y: 1)
-        } else {
-            return base
-        }
+private func currentVideoTransform() -> CGAffineTransform {
+    if videoInput?.device.position == .front {
+        return CGAffineTransform(scaleX: -1, y: 1)
+    } else {
+        return .identity
     }
+}
 
     // MARK: - Writer Control
     private func startWritingSession() {
