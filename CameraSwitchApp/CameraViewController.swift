@@ -155,7 +155,7 @@ class CameraViewController: UIViewController {
         previewLayer = AVCaptureVideoPreviewLayer(session: session)
         previewLayer.videoGravity = .resizeAspectFill
         if let conn = previewLayer.connection, conn.isVideoOrientationSupported {
-            conn.videoOrientation = .portrait
+            conn.videoOrientation = currentVideoOrientation()
         }
         view.layer.insertSublayer(previewLayer, at: 0)
         previewLayer.frame = view.bounds
@@ -208,22 +208,40 @@ class CameraViewController: UIViewController {
         }
     }
 
-    private func currentVideoTransform() -> CGAffineTransform {
-        var transform = CGAffineTransform.identity
+    private func currentVideoOrientation() -> AVCaptureVideoOrientation {
         switch UIDevice.current.orientation {
-        case .landscapeRight:
-            transform = CGAffineTransform(rotationAngle: .pi / 2)
-        case .landscapeLeft:
-            transform = CGAffineTransform(rotationAngle: -.pi / 2)
+        case .portrait:
+            return .portrait
         case .portraitUpsideDown:
-            transform = CGAffineTransform(rotationAngle: .pi)
+            return .portraitUpsideDown
+        case .landscapeLeft:
+            return .landscapeRight
+        case .landscapeRight:
+            return .landscapeLeft
         default:
-            transform = .identity
+            return .portrait
+        }
+    }
+
+    private func currentVideoTransform() -> CGAffineTransform {
+        let base: CGAffineTransform
+        switch UIDevice.current.orientation {
+        case .portrait:
+            base = CGAffineTransform(rotationAngle: .pi / 2)
+        case .portraitUpsideDown:
+            base = CGAffineTransform(rotationAngle: -.pi / 2)
+        case .landscapeLeft:
+            base = CGAffineTransform(rotationAngle: .pi)
+        case .landscapeRight:
+            base = .identity
+        default:
+            base = .identity
         }
         if videoInput?.device.position == .front {
-            transform = transform.scaledBy(x: -1, y: 1)
+            return base.scaledBy(x: -1, y: 1)
+        } else {
+            return base
         }
-        return transform
     }
 
     // MARK: - Writer Control
@@ -237,7 +255,12 @@ class CameraViewController: UIViewController {
             return
         }
         assetWriter = writer
-        
+
+        if let connection = videoOutput.connection(with: .video),
+           connection.isVideoOrientationSupported {
+            connection.videoOrientation = currentVideoOrientation()
+        }
+
         // Video writer input
         guard let vSettings = videoOutput.recommendedVideoSettingsForAssetWriter(writingTo: .mov) else {
             print("❌ Could not get video settings")
