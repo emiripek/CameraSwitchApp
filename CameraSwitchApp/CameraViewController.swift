@@ -192,7 +192,25 @@ class CameraViewController: UIViewController {
             }
         }
     }
-    
+
+    private func currentVideoTransform() -> CGAffineTransform {
+        var transform = CGAffineTransform.identity
+        switch UIDevice.current.orientation {
+        case .landscapeRight:
+            transform = CGAffineTransform(rotationAngle: .pi / 2)
+        case .landscapeLeft:
+            transform = CGAffineTransform(rotationAngle: -.pi / 2)
+        case .portraitUpsideDown:
+            transform = CGAffineTransform(rotationAngle: .pi)
+        default:
+            transform = .identity
+        }
+        if videoInput?.device.position == .front {
+            transform = transform.scaledBy(x: -1, y: 1)
+        }
+        return transform
+    }
+
     // MARK: - Writer Control
     private func startWritingSession() {
         let outputURL = FileManager.default.temporaryDirectory
@@ -212,6 +230,8 @@ class CameraViewController: UIViewController {
         }
         let vInput = AVAssetWriterInput(mediaType: .video, outputSettings: vSettings)
         vInput.expectsMediaDataInRealTime = true
+        // Ensure recorded video matches current orientation and mirroring
+        vInput.transform = currentVideoTransform()
         pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
             assetWriterInput: vInput,
             sourcePixelBufferAttributes: nil
