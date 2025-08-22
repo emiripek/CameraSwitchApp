@@ -2,8 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>App needs to save your recorded videos into your Photo Library so you can view them later.</string>
+        <key>NSPhotoLibraryAddUsageDescription</key>
+        <string>App requires permission to add your recorded videos to your Photo Library so you can view them later.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>App requires microphone access to record audio.</string>
 	<key>NSCameraUsageDescription</key>
