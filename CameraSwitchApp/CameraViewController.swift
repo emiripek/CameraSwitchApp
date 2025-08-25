@@ -154,11 +154,9 @@ class CameraViewController: UIViewController {
         previewLayer?.removeFromSuperlayer()
         previewLayer = AVCaptureVideoPreviewLayer(session: session)
         previewLayer.videoGravity = .resizeAspectFill
-        if let conn = previewLayer.connection, conn.isVideoOrientationSupported {
-            conn.videoOrientation = currentVideoOrientation()
-        }
         view.layer.insertSublayer(previewLayer, at: 0)
         previewLayer.frame = view.bounds
+        updateVideoConnection()
     }
     
     // MARK: - UI Setup
@@ -205,16 +203,6 @@ class CameraViewController: UIViewController {
                 }
                 self.session.commitConfiguration()
                 self.updateVideoConnection()
-                DispatchQueue.main.async {
-                    if let conn = self.previewLayer.connection {
-                        if conn.isVideoOrientationSupported {
-                            conn.videoOrientation = self.currentVideoOrientation()
-                        }
-                        if conn.isVideoMirroringSupported {
-                            conn.isVideoMirrored = (newPos == .front)
-                        }
-                    }
-                }
             }
         }
     }
@@ -235,12 +223,36 @@ class CameraViewController: UIViewController {
 }
 
 private func updateVideoConnection() {
-    guard let connection = videoOutput.connection(with: .video) else { return }
-    if connection.isVideoOrientationSupported {
-        connection.videoOrientation = currentVideoOrientation()
+    let isFront = (videoInput?.device.position == .front)
+
+    if let connection = videoOutput.connection(with: .video) {
+        connection.automaticallyAdjustsVideoMirroring = false
+        if connection.isVideoMirroringSupported {
+            connection.isVideoMirrored = isFront
+        }
+        if connection.isVideoOrientationSupported {
+            connection.videoOrientation = currentVideoOrientation()
+        } else {
+            connection.videoOrientation = .portrait
+        }
+    } else {
+        print("❌ videoOutput connection is nil")
     }
-    if connection.isVideoMirroringSupported {
-        connection.isVideoMirrored = (videoInput?.device.position == .front)
+
+    DispatchQueue.main.async {
+        guard let conn = self.previewLayer?.connection else {
+            print("❌ previewLayer connection is nil")
+            return
+        }
+        conn.automaticallyAdjustsVideoMirroring = false
+        if conn.isVideoMirroringSupported {
+            conn.isVideoMirrored = isFront
+        }
+        if conn.isVideoOrientationSupported {
+            conn.videoOrientation = self.currentVideoOrientation()
+        } else {
+            conn.videoOrientation = .portrait
+        }
     }
 }
 
@@ -257,7 +269,7 @@ private func startWritingSession() {
     let outputURL = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString)
         .appendingPathExtension("mov")
-    
+
     guard let writer = try? AVAssetWriter(outputURL: outputURL, fileType: .mov) else {
         print("❌ Could not create AVAssetWriter")
         return
@@ -265,40 +277,39 @@ private func startWritingSession() {
     assetWriter = writer
 
     updateVideoConnection()
-}
 
-        // Video writer input
-        guard let vSettings = videoOutput.recommendedVideoSettingsForAssetWriter(writingTo: .mov) else {
-            print("❌ Could not get video settings")
-            return
-        }
-        let vInput = AVAssetWriterInput(mediaType: .video, outputSettings: vSettings)
-        vInput.expectsMediaDataInRealTime = true
-        pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
-            assetWriterInput: vInput,
-            sourcePixelBufferAttributes: nil
-        )
-        if writer.canAdd(vInput) {
-            writer.add(vInput)
-            videoWriterInput = vInput
-        } else {
-            print("❌ Cannot add video writer input")
-        }
-        
-        // Audio writer input
-        let aInput = AVAssetWriterInput(mediaType: .audio, outputSettings: nil)
-        aInput.expectsMediaDataInRealTime = true
-        if writer.canAdd(aInput) {
-            writer.add(aInput)
-            audioWriterInput = aInput
-        } else {
-            print("❌ Cannot add audio writer input")
-        }
-        
-        writer.startWriting()
-        isWriting = true
-        sessionStarted = false
+    // Video writer input
+    guard let vSettings = videoOutput.recommendedVideoSettingsForAssetWriter(writingTo: .mov) else {
+        print("❌ Could not get video settings")
+        return
     }
+    let vInput = AVAssetWriterInput(mediaType: .video, outputSettings: vSettings)
+    vInput.expectsMediaDataInRealTime = true
+    pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
+        assetWriterInput: vInput,
+        sourcePixelBufferAttributes: nil
+    )
+    if writer.canAdd(vInput) {
+        writer.add(vInput)
+        videoWriterInput = vInput
+    } else {
+        print("❌ Cannot add video writer input")
+    }
+
+    // Audio writer input
+    let aInput = AVAssetWriterInput(mediaType: .audio, outputSettings: nil)
+    aInput.expectsMediaDataInRealTime = true
+    if writer.canAdd(aInput) {
+        writer.add(aInput)
+        audioWriterInput = aInput
+    } else {
+        print("❌ Cannot add audio writer input")
+    }
+
+    writer.startWriting()
+    isWriting = true
+    sessionStarted = false
+}
     
     private func finishWritingSession() {
         isWriting = false
