@@ -62,6 +62,3 @@ These are already included in `CameraSwitchApp/Info.plist`.
 - Optional HEVC (H.265) output and metadata
 - Unit/UI tests and CI configuration
 
-## License
-No license file currently provided. If you intend to share or open-source this project, consider adding a LICENSE file (e.g., MIT, Apache 2.0).
-
